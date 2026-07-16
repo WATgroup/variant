@@ -32,9 +32,11 @@ const (
 
 	Flags = Int + shift // uint32+
 
-	shift VariantType = 1 << 7
+	shift VariantType = 1 << 5
 
-	Undef VariantType = Bool + shift
+	Undef VariantType = shift
+
+	mutable VariantType = 0x8000
 )
 
 const (
@@ -57,52 +59,4 @@ func (v Variant) Type() VariantType {
 		return Empty
 	}
 	return VariantType(v.typInfo & typeFieldMask)
-}
-
-func NewInt(x int64) Variant {
-	return Variant{uintptr(x), 1, uint32(Int)}
-}
-func (v Variant) Int() int64 {
-	if uint32(Int) == v.typInfo { // fastpath
-		return int64(v.value)
-	}
-	return 0
-}
-
-func NewFloat(x float64) Variant {
-	return Variant{uintptr(x), 1, uint32(Float)}
-}
-func (v Variant) Float() float64 {
-	if uint32(Float) == v.typInfo { // fastpath
-		return float64(v.value)
-	}
-	return 0
-}
-
-func NewBool(x bool) Variant {
-	var val uintptr
-	switch x {
-	case true:
-		val = VTrue
-	case false:
-		val = VFalse
-	}
-	return Variant{val, 1, uint32(Bool)}
-}
-func NewTristate() Variant {
-	return Variant{0, 1, uint32(Bool)}
-}
-
-func (v Variant) Bool(defval bool) bool {
-	if uint32(Bool) == v.typInfo { // fastpath
-		switch v.value {
-		case VTrue:
-			return true
-		case VFalse:
-			return false
-		default:
-			return defval
-		}
-	}
-	return defval // upon VDunno
 }

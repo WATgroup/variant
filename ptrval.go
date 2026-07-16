@@ -79,6 +79,22 @@ func NewStringEx(str []byte) (ret Variant) {
 	return
 }
 
+func (v Variant) String() string {
+	if 0 == v.value {
+		return ""
+	}
+	return stringdata(v.value)
+}
+
+func stringdata(v uintptr) string {
+	map_strings.mx.RLock()
+	defer map_strings.mx.RUnlock()
+
+	return map_strings.data[v]
+}
+
+//////////////////////////////////////////////////////////////////////
+
 func NewBlob(x []byte) (ret Variant) {
 	h, l := regBlob(x)
 	ret = Variant{h, l, uint32(Blob & typeFieldMask)}
