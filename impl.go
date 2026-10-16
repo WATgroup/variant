@@ -5,17 +5,16 @@
 package variant
 
 import (
-	"fmt"
-	"strconv"
+// "fmt"
 )
 
 // ** for "merged" len/typeInfo fields -- superseeded by v2 (THIS) implementation
 const (
 	// Number of bits to use for Type field. n >= log2(max(VariantType))
-	typeFieldBitCount = 5
+	typeFieldBitCount = 4
 
 	// Bit mask for Type part of lenInfo field.
-	// ...or up to 256MB size
+	// ...or up to 2^27 == 128MB size
 	typeFieldMask = (1 << typeFieldBitCount) - 1
 
 	// Maximum length of a slice-type that can be stored in Variant.
@@ -26,9 +25,9 @@ const (
 	ptrAddxMark = (0xFC80 << ptrAddxLen)
 )
 
-const (
-	DISABLE_FREEMEM = false
-)
+// const (
+// 	DISABLE_FREEMEM = false
+// )
 
 const (
 	sCORRUPTED = "CORRUPT Variant!"
@@ -54,38 +53,5 @@ func (v Variant) GoString() string {
 	if 0 != (Undef & VariantType(v.typInfo)) {
 		return "undef"
 	}
-	// explicit: shift will NOT match...
-	switch VariantType(v.typInfo) {
-	case Bool:
-		switch v.value {
-		case 0:
-			return `dunno`
-		case VTrue:
-			return `true`
-		case VFalse:
-			return `false`
-		}
-		// can't be any other value...
-		panic(sCORRUPTED)
-
-	case Flags:
-		return fmt.Sprintf("%x", uint32(v.value))
-
-	case Int:
-		// fmt.Sprint("%d", int64(v.value))
-		return strconv.FormatInt(int64(v.value), 10)
-
-	case Float:
-		// fmt.Sprintf("%g", opaque2float(v.value))
-		return strconv.FormatFloat(opaque2float(v.value), 'g', -1, 64)
-
-	case String:
-		return stringdata(v.value)
-
-	default:
-		break
-	}
-
-	// FALLTHROUGH :?
-	panic(sCORRUPTED)
+	return v.toString()
 }

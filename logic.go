@@ -14,13 +14,14 @@ func NewBool(x bool) Variant {
 	}
 	return Variant{val, 1, uint32(Bool)}
 }
+
 func NewTristate() Variant {
-	return Variant{0, 1, uint32(Bool)}
+	return Variant{0, 2, uint32(Bool)} // default "dunno"
 }
 
 func (v Variant) IsDunno() bool {
 	// assume we can rely on shortcircuit evaluation
-	return (Bool == VariantType(v.typInfo) && (0 == v.value)) || (0 != (v.typInfo & uint32(shift)))
+	return (Bool == VariantType(v.typInfo) && 2 == v.length) //(0 == v.value)) || (0 != (v.typInfo & uint32(shift)))
 }
 
 func (v Variant) Bool() bool {
@@ -45,7 +46,40 @@ func (v Variant) Bool3(defval bool) bool {
 			return defval
 		}
 	}
-	return defval // upon VDunno
+	// XXX: slightly "surprising" behaviour...
+	return defval
+}
+
+func (v Variant) LogicAnd(input bool) bool {
+	if (uint32(Bool) == v.typInfo) && (2 == v.length || VDunno == v.value) {
+		// Dunno!
+		return input
+	}
+	switch v.value {
+	case VTrue:
+		return input
+	case VFalse:
+		return false
+	default:
+		break
+	}
+	return input && (0 != v.value) // shouldn't happen...
+}
+
+func (v Variant) LogicOr(input bool) bool {
+	if (uint32(Bool) == v.typInfo) && (2 == v.length || VDunno == v.value) {
+		// Dunno!
+		return input
+	}
+	switch v.value {
+	case VTrue:
+		return true
+	case VFalse:
+		return input
+	default:
+		break
+	}
+	return input || (0 != v.value) // shouldn't happen...
 }
 
 ///////////////////////////////////////////////////////////////////////////////

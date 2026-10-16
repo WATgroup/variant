@@ -30,19 +30,18 @@ const (
 	Blob               // slice-of-bytes
 	Reserved
 
-	Flags = Int + shift // uint32+
+	shift VariantType = 1 << (typeFieldBitCount + 2)
 
-	shift VariantType = 1 << 5
-
+	Flags             = Int + shift // uint32+
 	Undef VariantType = shift
 
 	mutable VariantType = 0x8000
 )
 
 const (
-	VTrue  = uintptr(1 << 6)
-	VFalse = uintptr(^(1 << 6) & 0xFFFFFF)
-	VDunno = 1
+	VTrue  = uintptr(3 << 8)
+	VFalse = uintptr(2 << 8) // & 0xFFFFFF)
+	VDunno = 0
 )
 
 func (v Variant) IsEmpty() bool {
@@ -58,5 +57,12 @@ func (v Variant) Type() VariantType {
 	if v.IsEmpty() {
 		return Empty
 	}
-	return VariantType(v.typInfo & typeFieldMask)
+	return VariantType(v.typInfo)
+}
+
+func (v Variant) Len() int {
+	if Bool == VariantType(v.typInfo&typeFieldMask) {
+		return 1 // "fix" trick with encoding
+	}
+	return int(v.length)
 }

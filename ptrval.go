@@ -5,7 +5,7 @@
 package variant
 
 import (
-	"runtime"
+	// "runtime"
 	"sync"
 	"sync/atomic"
 )
@@ -36,7 +36,8 @@ func init() {
  * Messing with pointers "à la C union" is guaranteed to panic once Go's GC
  * does its thing -- specially as soon as it starts moving mem blocks around(!)
  *
- * Type-specific maps are demand-
+ * TODO: use "weak" (Go 1.26+) and a true pointer value to implement generalized,
+ * freeable "vectors". For now, strings and blob are never freed once *interned*
  *
  * Until go's generics implementation matures / supports partial specialization,
  * this will be faster and more efficient
@@ -46,17 +47,22 @@ type stringMap struct {
 	mx     sync.RWMutex
 	data   map[uintptr]string
 	inited uint32
-	_      noCopy
+	// _      noCopy
 }
 
 // The relative overhead of a slice (2 64bit words) is negligible when compared
 type bytevec = []byte
+// type blobRep struct {
+// 	value	bytevec
+// 	cnt	uint32
+//	_	noCopy
+// }
 
 type bytevecMap struct {
 	mx     sync.RWMutex
 	data   map[uintptr]bytevec
 	inited uint32
-	_      noCopy
+	// _      noCopy
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -64,28 +70,23 @@ type bytevecMap struct {
 func NewString(str string) (ret Variant) {
 	h, l := regString(str)
 	ret = Variant{h, l, uint32(String & typeFieldMask)}
-	if !DISABLE_FREEMEM {
-		runtime.SetFinalizer(&ret, delString)
-	}
+	// if !DISABLE_FREEMEM {
+	// 	runtime.SetFinalizer(&ret, delString)
+	// }
 	return
 }
 
 func NewStringEx(str []byte) (ret Variant) {
 	h, l := regString(string(str))
 	ret = Variant{h, l, uint32(String & typeFieldMask)}
-	if !DISABLE_FREEMEM {
-		runtime.SetFinalizer(&ret, delString)
-	}
+	// if !DISABLE_FREEMEM {
+	//	runtime.SetFinalizer(&ret, delString)
+	// }
 	return
 }
 
-func (v Variant) String() string {
-	if 0 == v.value {
-		return ""
-	}
-	return stringdata(v.value)
-}
-
+// stringdata is only ever invoked by Variant internals... hence
+// the "handle" (value) must have been iniatialized previously / is valid
 func stringdata(v uintptr) string {
 	map_strings.mx.RLock()
 	defer map_strings.mx.RUnlock()
@@ -98,7 +99,9 @@ func stringdata(v uintptr) string {
 func NewBlob(x []byte) (ret Variant) {
 	h, l := regBlob(x)
 	ret = Variant{h, l, uint32(Blob & typeFieldMask)}
-	runtime.SetFinalizer(&ret, delBlob) // XXX: TODO: check validity of supposition
+	// if !DISABLE_FREEMEM {
+	// 	runtime.SetFinalizer(&ret, delBlob)
+	// }
 	return
 }
 
@@ -145,13 +148,26 @@ func regBlob(x []byte) (uintptr, uint32) {
 	defer map_bytevec.mx.Unlock()
 
 	c := handleCnt.Add(1)
-	map_bytevec.data[c] = x
+	map_bytevec.data[c] = x	//blobRep{x,1}
 
 	return c, l
 }
 
 func delBlob(o *Variant) {
-	delete(map_bytevec.data, o.value)
+	map_bytevec.mx.Lock()
+	defer map_bytevec.mx.Unlock()
+
+	// XXX: (misguided) attempt at reference counting, since we lack a copy constructor in Go
+	// if 0 == atomic.LoadUint32(map_bytevec[o.value].cnt) {
+		delete(map_bytevec.data, o.value)
+	// }
+}
+
+func blobdata(z uintptr) []byte {
+	map_bytevec.mx.RLock()
+	defer map_bytevec.mx.RUnlock()
+
+	return map_bytevec.data[z]
 }
 
 // /////////////////////////////////////////////////////////////////////////////
